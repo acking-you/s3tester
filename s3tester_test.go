@@ -2104,7 +2104,7 @@ func TestExecuteNoCommand(t *testing.T) {
 }
 
 func TestEmptyHistogramSummary(t *testing.T) {
-	HistogramSummary(NewResult().latencies)
+	HistogramSummary(NewResult().latencies, "test", "test")
 }
 
 func TestVirtualHostedStyleURL(t *testing.T) {

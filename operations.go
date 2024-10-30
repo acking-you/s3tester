@@ -19,6 +19,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/HdrHistogram/hdrhistogram-go"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/service/s3"
@@ -482,6 +483,7 @@ func ListObjects(svc s3iface.S3API, bucket, _regex string) error {
 	totalSize := uint64(0)
 	objectSizes := make(map[string]uint64)
 	continuationToken := ""
+	histogram := hdrhistogram.New(1, 4096*1e7, 4)
 
 	for {
 		// List Objects Of Bucket
@@ -493,6 +495,7 @@ func ListObjects(svc s3iface.S3API, bucket, _regex string) error {
 
 		for _, obj := range output.Contents {
 			size := uint64(*obj.Size)
+			err = histogram.RecordValue(int64(size / 1e4))
 			objectSizes[*obj.Key] = size
 			totalSize += size
 		}
@@ -525,6 +528,8 @@ func ListObjects(svc s3iface.S3API, bucket, _regex string) error {
 		}
 		fmt.Println("Object sizes written to objects.txt")
 	}
+	// Print distribution
+	HistogramSummary(histogram, "Operations", "ObjectSize(MB)")
 
 	// Print total size
 	fmt.Printf("Total size of bucket %s: %s\n", bucket, humanize.Bytes(totalSize))

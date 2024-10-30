@@ -1003,7 +1003,7 @@ func printReadableResults(testResults []*results) {
 		fmt.Println("\n\t--- Total Results ---")
 		fmt.Printf("Operation: %s\n", testResult.CumulativeResult.Operation)
 		printResult(testResult.CumulativeResult)
-		HistogramSummary(testResult.CumulativeResult.latencies)
+		HistogramSummary(testResult.CumulativeResult.latencies, "Operations", "Latency(ms)")
 	}
 }
 
@@ -1184,8 +1184,8 @@ func readErrorResponse(r *request.Request) ([]byte, error) {
 }
 
 // HistogramSummary will generate a power of 2 histogram summary where every successive bin is 2x the last one.
-// The bins are latencies in milliseconds and the values are operation counts.
-func HistogramSummary(h *hdrhistogram.Histogram) {
+// The bins are `op_name`(latencies in milliseconds) and the values are `count_name`(operation counts).
+func HistogramSummary(h *hdrhistogram.Histogram, op_name, count_name string) {
 	dist := h.Distribution()
 
 	bars := len(dist)
@@ -1237,7 +1237,7 @@ func HistogramSummary(h *hdrhistogram.Histogram) {
 		countWidth = 1
 	}
 
-	fmt.Printf("%-[1]*[2]s : Operations\n", intervalWidth*2, "Latency(ms)")
+	fmt.Printf("%-[1]*[2]s : %s\n", intervalWidth*2, count_name, op_name)
 
 	// Maximum bin width to print out using '|'
 	maxBinWidth := 80.0
