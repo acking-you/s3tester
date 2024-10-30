@@ -32,7 +32,7 @@ const (
 )
 
 var (
-	operationTypes = []string{"put", "multipartput", "get", "puttagging", "updatemeta", "randget", "delete", "options", "head", "restore", "copy"}
+	operationTypes = []string{"put", "multipartput", "get", "puttagging", "updatemeta", "randget", "delete", "options", "head", "restore", "copy", "listobjects"}
 
 	// Operations either creating or not needing existing objects. These don't require --requests specified because keys are dynamically generated.
 	// Some other operations, such as GET, require --requests specified to constrain keys.
@@ -62,6 +62,11 @@ func validateConfig(config *Config) error {
 		return errors.New("RetrySleep must be >= 0")
 	}
 	return nil
+}
+
+func IsSingleOpConfig(config *Config) bool {
+	op_types_len := len(operationTypes)
+	return len(config.worklist) == 1 && config.worklist[0].Operation == operationTypes[op_types_len-1]
 }
 
 // Parameters includes configuration that applies to an individual set of operations
@@ -385,12 +390,12 @@ func createWorklist(params Parameters, workloadData []byte, ignore []string) ([]
 	}
 	var workload map[string]interface{}
 	if err := json.Unmarshal(workloadData, &workload); err != nil {
-		return nil, fmt.Errorf("Failed parsing workload file: %v", err)
+		return nil, fmt.Errorf("failed parsing workload file: %v", err)
 	}
 	var global map[string]interface{}
 	if g, ok := workload[globalField]; ok {
 		if global, ok = g.(map[string]interface{}); !ok {
-			return nil, fmt.Errorf("Failed parsing workload: %q field does not match schema", globalField)
+			return nil, fmt.Errorf("failed parsing workload: %q field does not match schema", globalField)
 		}
 	}
 	globalParams := params
@@ -402,14 +407,14 @@ func createWorklist(params Parameters, workloadData []byte, ignore []string) ([]
 	var tests []interface{}
 	if t, ok := workload[workloadField]; ok {
 		if tests, ok = t.([]interface{}); !ok {
-			return nil, fmt.Errorf("Failed parsing workload: %q field does not match schema", workloadField)
+			return nil, fmt.Errorf("failed parsing workload: %q field does not match schema", workloadField)
 		}
 	}
 
 	for i, v := range tests {
 		test, ok := v.(map[string]interface{})
 		if !ok {
-			return nil, fmt.Errorf("Failed parsing workload: test at position %d does not match schema", i)
+			return nil, fmt.Errorf("failed parsing workload: test at position %d does not match schema", i)
 		}
 
 		testParams := globalParams.Copy()

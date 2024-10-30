@@ -14,6 +14,7 @@ import (
 	"math"
 	"math/rand"
 	"net/http"
+	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -22,6 +23,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3iface"
+	"github.com/dustin/go-humanize"
 )
 
 const (
@@ -471,6 +473,73 @@ func RestoreObject(svc s3iface.S3API, bucket string, key string, tier string, da
 
 	_, err := svc.RestoreObject(params)
 
+	return err
+}
+
+func ListObjects(svc s3iface.S3API, bucket, _regex string) error {
+	var err error
+
+	totalSize := uint64(0)
+	objectSizes := make(map[string]uint64)
+	continuationToken := ""
+
+	for {
+		// List Objects Of Bucket
+		output, e := svc.ListObjectsV2(&s3.ListObjectsV2Input{
+			Bucket:            aws.String(bucket),
+			ContinuationToken: aws.String(continuationToken),
+		})
+		err = e
+
+		for _, obj := range output.Contents {
+			size := uint64(*obj.Size)
+			objectSizes[*obj.Key] = size
+			totalSize += size
+		}
+
+		if output.NextContinuationToken == nil {
+			break
+		}
+		continuationToken = *output.NextContinuationToken
+	}
+
+	// Check the number of objects and decide how to output them
+	if len(objectSizes) < 200 {
+		fmt.Println("Object sizes:")
+		for key, size := range objectSizes {
+			fmt.Printf("Key: %s, Size: %s\n", key, humanize.Bytes(size))
+		}
+	} else {
+		// Over 200 objects, write to objects.txt file
+		file, err := os.Create("objects.txt")
+		if err != nil {
+			log.Fatalf("failed to create file: %v", err)
+		}
+		defer file.Close()
+
+		for key, size := range objectSizes {
+			_, err := file.WriteString(fmt.Sprintf("Key: %s, Size: %s\n", key, humanize.Bytes(size)))
+			if err != nil {
+				log.Fatalf("failed to write to file: %v", err)
+			}
+		}
+		fmt.Println("Object sizes written to objects.txt")
+	}
+
+	// Print total size
+	fmt.Printf("Total size of bucket %s: %s\n", bucket, humanize.Bytes(totalSize))
+
+	return err
+}
+
+func DoSingleOp(svc s3iface.S3API, client *http.Client, op, _regex string, arg *Parameters) error {
+	var err error
+	switch op {
+	case "listobjects":
+		err = ListObjects(svc, arg.Bucket, _regex)
+	default:
+		err = fmt.Errorf("Not supported op:%v", op)
+	}
 	return err
 }
 

@@ -287,6 +287,18 @@ type work struct {
 	durationRequestCount *uint64
 }
 
+func executeSingleOp(config *Config, arg *Parameters) {
+	credential, err := loadCredentialProfile(arg.Profile, arg.NoSignRequest)
+	if err != nil {
+		log.Fatalf("Failed loading credentials.\nPlease specify env variable AWS_SHARED_CREDENTIALS_FILE if you put credential file other than AWS CLI configuration directory: %v", err)
+	}
+	httpClient := MakeHTTPClient()
+	svc := MakeS3Service(httpClient, config, arg, arg.Endpoint, credential)
+	if err := DoSingleOp(svc, httpClient, arg.Operation, "", arg); err != nil {
+		log.Fatalf("Failed to execute single op: %v", err)
+	}
+}
+
 func startTestWorker(ctx context.Context, c chan<- Result, config *Config, args Parameters, sysInterruptHandler SyscallHandler) {
 	credential, err := loadCredentialProfile(args.Profile, args.NoSignRequest)
 	if err != nil {
@@ -756,6 +768,11 @@ func main() {
 		fmt.Println(string(b))
 	} else {
 		isLoggingDetails = config.LogDetail != ""
+		if IsSingleOpConfig(config) {
+			arg := config.worklist[0]
+			executeSingleOp(config, &arg)
+			return
+		}
 		results := executeTester(context.Background(), config)
 		failCount, err := handleTesterResults(config, results)
 		if err != nil {
